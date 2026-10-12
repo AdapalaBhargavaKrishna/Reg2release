@@ -1,0 +1,49 @@
+[
+  {
+    "rule_id": "HO_DISC_02",
+    "rule_name": "Homeowners Certified Safety Device Factor",
+    "line_of_business": "Homeowners Multi-Peril",
+    "jurisdiction": "US - Florida",
+    "version": "1.2",
+    "status": "ACTIVE",
+    "effective_date": "2024-01-01",
+    "description": "Applies a rate discount factor to primary structure premium for homes equipped with certified wind mitigation or monitored protective devices.",
+    "parameters": {
+      "discount_percent": 5.0,
+      "multiplier_factor": 0.95,
+      "eligible_device_types": ["impact_glass", "monitored_burglar_alarm", "roof_tie_downs"]
+    },
+    "calculation_formula": "premium = base_premium * multiplier_factor"
+  },
+  {
+    "rule_id": "IRDAI_WELL_01",
+    "rule_name": "Retail Health Preventive Wellness Discount",
+    "line_of_business": "Health Insurance",
+    "jurisdiction": "India - IRDAI",
+    "version": "2.0",
+    "status": "ACTIVE",
+    "effective_date": "2024-06-01",
+    "description": "Applies wellness credit discount for policyholders completing annual health assessments and teleconsultation programs.",
+    "parameters": {
+      "discount_percent": 10.0,
+      "multiplier_factor": 0.90,
+      "cap_amount_inr": 2500
+    },
+    "calculation_formula": "premium = base_premium * multiplier_factor"
+  },
+  {
+    "rule_id": "AUTO_SAFE_03",
+    "rule_name": "Commercial Auto Telematics Safe Fleet Discount",
+    "line_of_business": "Commercial Auto",
+    "jurisdiction": "US - Nationwide",
+    "version": "1.0",
+    "status": "ACTIVE",
+    "effective_date": "2023-09-01",
+    "description": "Premium credit for fleets installed with certified electronic logging devices and anti-collision warning systems.",
+    "parameters": {
+      "discount_percent": 12.0,
+      "multiplier_factor": 0.88
+    },
+    "calculation_formula": "premium = base_premium * multiplier_factor"
+  }
+]
