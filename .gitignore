@@ -1,0 +1,33 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+.pytest_cache/
+
+# Environment & Local configuration
+.env
+*.env
+venv/
+env/
+ENV/
+
+# Databases & local audit logs
+*.db
+*.sqlite
+*.sqlite3
+audit_log.db
+test_audit.db
+
+# Test scripts & local runner batch files
+tests/
+test_quick.py
+pytest.ini
+run.bat
+run.ps1
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
