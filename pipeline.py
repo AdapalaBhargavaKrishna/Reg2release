@@ -144,3 +144,82 @@ class Reg2ReleasePipeline:
             confidence_score=1.0,
             reviewer_decision=f"{decision} by {reviewer_name}"
         )
+
+    def rerun_spec_loop_with_feedback(self, current_state: dict, reviewer_feedback: str, reviewer_name: str) -> dict:
+        """Stage 7 -> Stage 4 Review Feedback Loop: Refines spec & re-tests based on human analyst instructions."""
+        change_id = current_state["change_id"]
+        
+        # 1. Log the loopback in audit log
+        self.audit_trail.log_step(
+            change_id=change_id,
+            step="7b. REVIEWER_EDIT_LOOPBACK",
+            source_clause=current_state.get("intake", {}).get("source_clause", ""),
+            input_data={"reviewer_name": reviewer_name, "feedback_instructions": reviewer_feedback},
+            output_data={"action": "RETRIGGER_SPEC_AGENT", "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()},
+            confidence_score=1.0,
+            reviewer_decision=f"REQUEST_EDITS by {reviewer_name}"
+        )
+
+        # 2. Refine Specification via SpecAgent
+        from agents.spec_agent import SpecificationPackage
+        from agents.impact_agent import ImpactEvaluation
+        current_spec_obj = SpecificationPackage(**current_state["spec"])
+        impact_obj = ImpactEvaluation(**current_state["impact"])
+        
+        revised_spec = self.spec_agent.refine_specification_with_feedback(current_spec_obj, reviewer_feedback)
+        
+        self.audit_trail.log_step(
+            change_id=change_id,
+            step="4b. SPEC_REVISED_PER_FEEDBACK",
+            source_clause=revised_spec.source_clause_link,
+            input_data={"feedback": reviewer_feedback},
+            output_data=revised_spec.model_dump(),
+            confidence_score=0.99
+        )
+
+        # 3. Regenerate Test Suite via TestAgent
+        revised_tests = self.test_agent.generate_tests(revised_spec, impact_obj, current_state["old_rule"])
+        
+        # 4. Re-run Deterministic Tests
+        revised_test_results = DeterministicRuleRunner.execute_test_suite(
+            old_rule=current_state["old_rule"],
+            new_rule=current_state["new_rule"],
+            test_cases=[tc.model_dump() for tc in revised_tests.test_cases]
+        )
+        all_passed = all(tr["status"] == "PASS" for tr in revised_test_results)
+
+        self.audit_trail.log_step(
+            change_id=change_id,
+            step="5b. DETERMINISTIC_TEST_RE_EXECUTION",
+            source_clause=revised_spec.source_clause_link,
+            input_data={"revised_spec_id": revised_spec.requirement_id},
+            output_data={"all_passed": all_passed, "results": revised_test_results},
+            confidence_score=1.0
+        )
+
+        # 5. Update Traceability Matrix
+        updated_traceability = []
+        for idx, tc in enumerate(revised_tests.test_cases):
+            story = revised_spec.user_stories[idx % len(revised_spec.user_stories)]
+            test_res = revised_test_results[idx] if idx < len(revised_test_results) else None
+            updated_traceability.append({
+                "source_clause": current_state["intake"]["source_clause"],
+                "requirement_id": revised_spec.requirement_id,
+                "impacted_rule": f"{current_state['old_rule']['rule_id']} (v{current_state['old_rule']['version']} -> v{current_state['new_rule']['version']})",
+                "user_story": f"{story.story_id}: {story.i_want_to}",
+                "test_case": f"{tc.test_id}: {tc.name}",
+                "verification_status": test_res["status"] if test_res else "UNKNOWN"
+            })
+
+        # Update state
+        new_state = dict(current_state)
+        new_state["spec"] = revised_spec.model_dump()
+        new_state["test_suite"] = revised_tests.model_dump()
+        new_state["test_results"] = revised_test_results
+        new_state["all_tests_passed"] = all_passed
+        new_state["traceability_matrix"] = updated_traceability
+        new_state["review_status"] = "PENDING_APPROVAL (REVISED)"
+        new_state["loop_iteration"] = new_state.get("loop_iteration", 0) + 1
+
+        return new_state
+

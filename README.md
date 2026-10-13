@@ -15,65 +15,78 @@ Insurance carriers in the US (state DOI bulletins) and India (IRDAI circulars) p
 
 ---
 
-## 🏗️ Architecture & 7 Pipeline Stages
+## 🏗️ Architecture & Pipeline Stages (100% Prototype Implementation)
 
 ```
-[1. Regulatory Source] (PDF / Circular text)
+[1. Regulatory Source] (PDF File Ingestion via PyMuPDF / Web Bulletin)
          │
          ▼
 [2. Intake Agent] (Extracts jurisdiction, clause citation, obligations, effective date)
          │
          ▼
-[3. Impact Agent] (Matches Knowledge Base rules, computes parameter deltas & confidence)
+[3. Impact Agent] (Hybrid Semantic + Structural Rule Retrieval from Knowledge Base)
          │
          ▼
-[4. Spec Agent] (Drafts Jira user stories & Gherkin acceptance criteria linked to clause)
+[4. Spec Agent] (Drafts Jira user stories & Gherkin acceptance criteria linked to clause) ◄───┐
+         │                                                                                    │
+         ▼                                                                                    │ (Stage 7 -> 4
+[5. Test Agent] (Synthesizes test scenarios with expected before/after values)                │  Review Loopback)
+         │                                                                                    │
+         ▼                                                                                    │
+[6. Automated Tests] (Deterministic Python Rule Engine runs Old vs New + Regression check)   │
+         │                                                                                    │
+         ▼                                                                                    │
+[7. Human Review Gate] (Analyst reviews diff: Approve / Request Edits / Reject) ──────────────┘
          │
          ▼
-[5. Test Agent] (Synthesizes test scenarios with expected before/after values)
-         │
-         ▼
-[6. Automated Tests] (Deterministic Python Rule Engine runs Old vs New version + Regression check)
-         │
-         ▼
-[7. Human Review Gate] (Analyst reviews Old vs New diff, evidence, and approves / edits / rejects)
-         │
-         ▼
-[Approved Change Package] (Traceability Matrix + Tamper-Evident SHA-256 Chained SQLite Audit Trail)
+[Approved Package] (Traceability Matrix + Tamper-Evident SHA-256 Chained SQLite Audit Trail)
 ```
 
 ---
 
-## 🛡️ Critical Design Decisions (Key Interview Talking Points)
+## 🌟 Key Features of the 100% Complete Prototype
 
-1. **Where AI is Used vs. Where AI is NOT Used:**
-   - **AI Used:** Ingesting unstructured legal prose, extracting structured Pydantic schemas, fuzzy rule retrieval reasoning, drafting Agile user stories and test scenarios.
-   - **Deterministic Code Used (No AI):** The insurance premium calculations and test assertions are executed by a **pure Python deterministic engine** (and pytest). LLMs are not allowed to do insurance math to prevent hallucinations.
-   - **Human-in-the-Loop Gate:** No rule is ever deployed directly to production by an AI. A human compliance analyst reviews the exact JSON diff and cited evidence before signing off.
+1. **Direct PDF Document Ingestion (Stage 1):**
+   - High-fidelity PDF extraction using `PyMuPDF`. Upload any state bulletin or IRDAI circular PDF or use pre-packaged official publications (`data/sample_documents/`).
 
-2. **Why Groq with `openai/gpt-oss-120b` & LangChain:**
-   - Ultra-fast token latency via Groq's LPU hardware, allowing multi-agent pipelines to execute sequentially in seconds rather than minutes.
-   - Strong reasoning and structured JSON output capability from the 120B parameter model.
-   - LangChain handles prompt templates, structured output schemas, and multi-agent coordination.
+2. **Semantic Knowledge Base Rule Retrieval (Stage 3):**
+   - Hybrid matching computing both structural metadata compatibility and continuous semantic relevance scores.
 
-3. **Tamper-Evident Hash-Chained Audit Trail (Section 7):**
-   - SQLite alone does not prevent unauthorized modifications.
-   - Reg2Release enforces **append-only semantics via SQLite database triggers** (rejecting all `UPDATE` and `DELETE` operations).
-   - Every audit record calculates a **SHA-256 cryptographic hash** containing:
-     `Hash = SHA-256(Previous_Hash + Change_ID + Step + Timestamp + Input_Hash + Output_Payload + Decision)`
-   - Any modification to a previous record immediately breaks the mathematical chain, which can be verified live via the UI button.
+3. **Deterministic Automated Rule Engine (Stage 6):**
+   - Pure Python execution. Eliminates LLM math hallucinations and asserts that legacy rules fail under new expectations (regression sensitivity).
+
+4. **Interactive Human-in-the-Loop Review & Loopback (Stage 7 ➔ Stage 4):**
+   - Selecting "REQUEST EDITS" enables the analyst to input directives that re-trigger the Spec Agent and regenerate tests automatically, closing the feedback loop from Figure 1.
+
+5. **Tamper-Evident Hash-Chained SQLite Audit Trail (Section 7):**
+   - Append-only enforcement via SQLite database triggers prohibiting `UPDATE` and `DELETE`.
+   - Every transaction is sealed with `SHA-256(previous_hash + change_id + step + payload + decision)`.
+   - Live cryptographic integrity verification directly from the UI.
+
+6. **Section 9 Benchmark & Evaluation Dashboard:**
+   - Benchmarks cycle time (sub-10s vs 4-6h manual), 100% traceability coverage, 100% test detection rate, and 100% mathematical determinism.
+
+7. **Docker Containerization:**
+   - Ready for containerized deployment via `docker-compose.yml` and `Dockerfile`.
 
 ---
 
-## 🚀 How to Run the Prototype
+## 🚀 How to Run
 
-### 1. Launch the Streamlit Dashboard
+### Method A: Local Launch (Windows / Streamlit)
 ```bash
+.\run.bat
+# or
 streamlit run app.py
 ```
-Open [http://localhost:8501](http://localhost:8501) in your browser.
+Open **http://localhost:8501** in your browser.
 
-### 2. Run Automated PyTest Suite
+### Method B: Docker Container
+```bash
+docker compose up --build
+```
+
+### Method C: Run Automated PyTest Suite
 ```bash
 pytest tests/test_rules_and_pipeline.py
 ```

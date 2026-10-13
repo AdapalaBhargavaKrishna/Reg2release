@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  reg2release:
+    build: .
+    container_name: reg2release-app
+    ports:
+      - "8501:8501"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./audit_log.db:/app/audit_log.db
+    restart: unless-stopped

@@ -109,3 +109,59 @@ Draft formal engineering specifications for the rule change."""
                     f"Scenario 2: Given an existing policy bound prior to {intake.effective_date}, When evaluated under legacy rules, Then the baseline discount remains at {intake.old_discount_percent}%."
                 ]
             )
+
+    def refine_specification_with_feedback(self, current_spec: SpecificationPackage, reviewer_feedback: str) -> SpecificationPackage:
+        """Stage 7 -> Stage 4 loopback: Refines software spec based on human reviewer feedback/edits."""
+        system_prompt = """You are the Spec Agent in Reg2Release.
+The Human Compliance Analyst has rejected or requested edits on the current software specification.
+Refine the requirement, user stories, and acceptance criteria to strictly address the reviewer's feedback.
+Output ONLY a valid JSON object matching this schema:
+{
+  "requirement_id": "string",
+  "title": "string",
+  "business_rationale": "string",
+  "target_rule_id": "string",
+  "source_clause_link": "string",
+  "user_stories": [
+    {
+      "story_id": "string",
+      "as_a": "string",
+      "i_want_to": "string",
+      "so_that": "string"
+    }
+  ],
+  "acceptance_criteria": [
+    "Given ... When ... Then ..."
+  ]
+}
+Do NOT include markdown formatting or backticks in the response. Return raw JSON only."""
+
+        human_prompt = f"""Current Specification:
+{json.dumps(current_spec.model_dump(), indent=2)}
+
+Reviewer Modification Instructions:
+"{reviewer_feedback}"
+
+Revise the specification to incorporate all reviewer directives."""
+
+        try:
+            response = self.llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=human_prompt)
+            ])
+            content = response.content.strip()
+            content = re.sub(r"^```json\s*", "", content)
+            content = re.sub(r"^```\s*", "", content)
+            content = re.sub(r"\s*```$", "", content).strip()
+            data = json.loads(content)
+            return SpecificationPackage(**data)
+        except Exception:
+            # Fallback refinement
+            revised = current_spec.model_copy(deep=True)
+            revised.title = f"{revised.title} (Revised per Reviewer Feedback)"
+            revised.business_rationale = f"{revised.business_rationale} | Human Edit Note: {reviewer_feedback}"
+            revised.acceptance_criteria.append(
+                f"Scenario [Reviewer Addendum]: Given reviewer feedback '{reviewer_feedback}', When verified against rule {revised.target_rule_id}, Then all modified criteria must be satisfied."
+            )
+            return revised
+

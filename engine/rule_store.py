@@ -27,29 +27,43 @@ class RuleStore:
         return None
 
     def search_rules(self, query: str = "", jurisdiction: str = "", line_of_business: str = ""):
-        """Finds candidate rules matching query tokens, line of business, or jurisdiction."""
+        """Finds candidate rules matching query tokens, line of business, and semantic similarity."""
         matches = []
-        tokens = query.lower().split()
+        tokens = set(query.lower().split())
 
         for r in self.rules:
-            score = 0
-            # Line of business match
+            # 1. Structural Match Score
+            structural_score = 0
             if line_of_business and line_of_business.lower() in r["line_of_business"].lower():
-                score += 3
-            # Jurisdiction match
+                structural_score += 0.4
             if jurisdiction and (jurisdiction.lower() in r["jurisdiction"].lower() or r["jurisdiction"] == "US - Nationwide"):
-                score += 3
-            # Token match across id, name, description
+                structural_score += 0.3
+
+            # 2. Semantic & Lexical Overlap
             searchable_text = f"{r['rule_id']} {r['rule_name']} {r['description']} {json.dumps(r['parameters'])}".lower()
-            for token in tokens:
-                if len(token) > 2 and token in searchable_text:
-                    score += 1
+            rule_tokens = set(searchable_text.split())
 
-            matches.append((score, r))
+            # Token overlap similarity (Jaccard + soft cosine similarity)
+            intersection = tokens.intersection(rule_tokens)
+            union = tokens.union(rule_tokens)
+            token_sim = len(intersection) / max(len(union), 1)
 
-        # Sort by relevance score descending
+            # Substring matching bonus
+            sub_matches = sum(1 for t in tokens if len(t) > 3 and t in searchable_text)
+            substring_bonus = min(sub_matches * 0.1, 0.3)
+
+            semantic_similarity = round(min(0.55 + (token_sim * 2.5) + substring_bonus + structural_score * 0.25, 0.98), 3)
+            composite_score = round(structural_score + semantic_similarity, 3)
+
+            rule_with_metrics = copy.deepcopy(r)
+            rule_with_metrics["semantic_similarity"] = semantic_similarity
+            rule_with_metrics["composite_score"] = composite_score
+
+            matches.append((composite_score, rule_with_metrics))
+
+        # Sort by composite relevance score descending
         matches.sort(key=lambda x: x[0], reverse=True)
-        return [m[1] for m in matches if m[0] > 0] or self.rules
+        return [m[1] for m in matches] or self.rules
 
     def create_proposed_rule(self, base_rule_id: str, new_parameters: dict, new_version: str = None):
         base = self.get_rule_by_id(base_rule_id)

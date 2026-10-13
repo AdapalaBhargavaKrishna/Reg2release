@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.git/
+.gitignore
+.env
+tests/
+test_quick.py
+run.bat
+*.db
+.pytest_cache/
