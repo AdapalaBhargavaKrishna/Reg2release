@@ -20,10 +20,8 @@ audit_log.db
 test_audit.db
 
 # Test scripts & local runner batch files
-tests/
 test_quick.py
 pytest.ini
-run.bat
 run.ps1
 
 # IDE & OS files
